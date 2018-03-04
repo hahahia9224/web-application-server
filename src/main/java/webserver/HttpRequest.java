@@ -12,10 +12,9 @@ import java.util.Map;
 public class HttpRequest {
 	private static final Logger log = LoggerFactory.getLogger(HttpRequest.class);
 
-	private String method;
-	private String path;
 	private Map<String, String> headers = new HashMap<>();
 	private Map<String, String> params = new HashMap<>();
+	private RequestLine requestLine;
 
 	public HttpRequest(InputStream in) {
 		try {
@@ -25,7 +24,7 @@ public class HttpRequest {
 				return;
 			}
 
-			processRequestLine(line);
+			requestLine = new RequestLine(line);
 
 			line = br.readLine();
 			while(!(line == null || line.equals(""))) {
@@ -35,9 +34,11 @@ public class HttpRequest {
 				line = br.readLine();
 			}
 
-			if("POST".equals(method)) {
+			if("POST".equals(getMethod())) {
 				String body = IOUtils.readData(br, Integer.parseInt(headers.get("Content-Length")));
 				params = HttpRequestUtils.parseQueryString(body);
+			} else {
+				params = requestLine.getParams();
 			}
 
 		} catch (IOException e) {
@@ -45,31 +46,12 @@ public class HttpRequest {
 		}
 	}
 
-	private void processRequestLine(String requestLine) { // method와 path 값을 저장하는 함수
-		log.debug("request line : {}", requestLine);
-		String[] tokens = requestLine.split(" ");
-		method = tokens[0]; // GET or POST
-
-		if("POST".equals(method)) {
-			path = tokens[1];
-			return;
-		}
-
-		int index = tokens[1].indexOf("?");
-		if(index == -1) {
-			path = tokens[1];
-		} else {
-			path = tokens[1].substring(0, index);
-			params = HttpRequestUtils.parseQueryString(tokens[1].substring(index+1));
-		}
-	}
-
 	public String getMethod() {
-		return method;
+		return requestLine.getMethod();
 	}
 
 	public String getPath() {
-		return path;
+		return requestLine.getPath();
 	}
 
 	public String getHeader(String name) {
